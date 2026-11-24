@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agenda de Contactos</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; background: #f2f4f8; margin: 0; padding: 20px; color: #222; }
+    .contenedor { max-width: 700px; margin: 0 auto; }
+    h1 { text-align: center; }
+    .tarjeta { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.15); }
+    label { display: block; margin-top: 10px; font-weight: bold; }
+    input { width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #bbb; border-radius: 4px; }
+    button { margin-top: 15px; padding: 10px 18px; border: 0; border-radius: 4px; background: #1a5fb4; color: #fff; cursor: pointer; }
+    button:hover { background: #174f94; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 8px; border-bottom: 1px solid #ddd; }
+    th { background: #eef1f6; }
+    #mensaje { margin-top: 10px; font-weight: bold; }
+    .ok { color: #1b7a2f; }
+    .error { color: #b3261e; }
+  </style>
+</head>
+<body>
+  <div class="contenedor">
+    <h1>Agenda de Contactos</h1>
+
+    <div class="tarjeta">
+      <h2>Agregar contacto</h2>
+      <form id="formulario">
+        <label for="nombre">Nombre</label>
+        <input type="text" id="nombre" required>
+        <label for="apellido">Apellido</label>
+        <input type="text" id="apellido" required>
+        <label for="telefono">Teléfono</label>
+        <input type="tel" id="telefono" required>
+        <button type="submit">Guardar</button>
+      </form>
+      <div id="mensaje"></div>
+    </div>
+
+    <div class="tarjeta">
+      <h2>Contactos</h2>
+      <button id="recargar" type="button">Actualizar lista</button>
+      <table>
+        <thead>
+          <tr><th>Nombre</th><th>Apellido</th><th>Teléfono</th></tr>
+        </thead>
+        <tbody id="lista"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const formulario = document.getElementById('formulario');
+    const lista = document.getElementById('lista');
+    const mensaje = document.getElementById('mensaje');
+
+    function mostrarMensaje(texto, tipo) {
+      mensaje.textContent = texto;
+      mensaje.className = tipo;
+    }
+
+    async function cargarContactos() {
+      try {
+        const respuesta = await fetch('/contactos');
+        const contactos = await respuesta.json();
+        lista.innerHTML = '';
+        if (!Array.isArray(contactos) || contactos.length === 0) {
+          lista.innerHTML = '<tr><td colspan="3">No hay contactos.</td></tr>';
+          return;
+        }
+        contactos.forEach(c => {
+          const fila = document.createElement('tr');
+          [c.nombre, c.apellido, c.telefono].forEach(valor => {
+            const celda = document.createElement('td');
+            celda.textContent = valor ?? '';
+            fila.appendChild(celda);
+          });
+          lista.appendChild(fila);
+        });
+      } catch (error) {
+        lista.innerHTML = '<tr><td colspan="3">No se pudo cargar la lista.</td></tr>';
+      }
+    }
+
+    formulario.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const contacto = {
+        nombre: document.getElementById('nombre').value.trim(),
+        apellido: document.getElementById('apellido').value.trim(),
+        telefono: document.getElementById('telefono').value.trim()
+      };
+      try {
+        const respuesta = await fetch('/contactos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(contacto)
+        });
+        const texto = await respuesta.text();
+        let datos = {};
+        try { datos = JSON.parse(texto); } catch { datos = { error: texto }; }
+        if (!respuesta.ok) throw new Error(datos.error || 'Error al guardar');
+        mostrarMensaje('Contacto guardado correctamente', 'ok');
+        formulario.reset();
+        cargarContactos();
+      } catch (error) {
+        mostrarMensaje(error.message, 'error');
+      }
+    });
+
+    document.getElementById('recargar').addEventListener('click', cargarContactos);
+    cargarContactos();
+  </script>
+</body>
+</html>
